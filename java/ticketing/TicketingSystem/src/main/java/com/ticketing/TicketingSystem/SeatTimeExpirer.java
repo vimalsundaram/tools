@@ -1,5 +1,7 @@
 package com.ticketing.TicketingSystem;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -16,7 +18,6 @@ public class SeatTimeExpirer implements Runnable {
 
 	private final AvailableSeatCounter availableSeatCounter;
 	private final AtomicBoolean runExpirer = new AtomicBoolean();
-	private int checkInterval = 5;
 
 	public SeatTimeExpirer(PriorityBlockingQueue<SeatHold> seatHoldQueue, 
 			CountDownLatch startLatch, AvailableSeatCounter availableSeatCounter, 
@@ -58,8 +59,8 @@ public class SeatTimeExpirer implements Runnable {
     				"  seatHoldQueue size " + seatHoldQueue.size() );
 
                      
-          SeatHold sh = null;
-        	long now = System.currentTimeMillis(); 
+    		SeatHold sh = null;
+        	long now = System.currentTimeMillis();
             while((sh = seatHoldQueue.peek()) != null) {
             	leastExpiryTime = sh.getExpiryTime(now);
             	if (leastExpiryTime <= 0) {
@@ -103,7 +104,4 @@ public class SeatTimeExpirer implements Runnable {
 		System.out.println("ExpirerThread " + Thread.currentThread().getId() +  " Shutting down thread " + Thread.currentThread().getId() + " seatHoldQueue size " + seatHoldQueue.size());
 	}
 
-	public void setCheckInterval(int interval) {
-		checkInterval = interval;
-	}
 }

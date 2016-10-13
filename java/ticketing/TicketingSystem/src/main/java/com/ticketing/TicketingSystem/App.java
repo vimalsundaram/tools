@@ -10,7 +10,7 @@ public class App extends AbstractTicketingService implements TicketService
 	private ExecutorService exec = Executors.newFixedThreadPool(Integer.parseInt(props.getProperty("NUMBER_OF_THREADS")));
 	private final Random random = new Random();
 	
-	private App() throws InterruptedException {
+	private App() throws InterruptedException, TicketException {
 		super();
 	}
 
@@ -23,7 +23,7 @@ public class App extends AbstractTicketingService implements TicketService
 			int id = random.nextInt(50000);
 			
 	        try {
-				Thread.sleep(i*10);
+				Thread.sleep(10);
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
@@ -43,7 +43,8 @@ public class App extends AbstractTicketingService implements TicketService
 					        
 				        	
 				        	try {
-								Thread.sleep(5);
+								Thread.sleep(999);
+
 					        	String reservation = reserveSeats(sh.getSeatHoldId(), customerEmail);
 					        	if (reservation != null)
 						        	System.out.println("ExecutorThread " + threadId +  " RESERVATION " + reservation + " numSeatsAvailable " 
@@ -55,8 +56,6 @@ public class App extends AbstractTicketingService implements TicketService
 								e.printStackTrace();
 							}
 					        
-				        } else {
-				        	System.out.println("ExecutorThread " + threadId + " Cannot find any seats at this time trying again");
 				        }
 					}
 				});
@@ -68,7 +67,7 @@ public class App extends AbstractTicketingService implements TicketService
     {
 		try {
 			app = new App();
-			long count = 100L;
+			long count = 15L;
 			while (count-- > 0) {
 				app.execute();
 				Thread.sleep(6000);

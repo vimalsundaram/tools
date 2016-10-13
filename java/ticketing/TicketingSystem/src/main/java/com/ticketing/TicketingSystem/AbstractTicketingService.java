@@ -63,14 +63,18 @@ public class AbstractTicketingService implements TicketService {
 		System.out.println("Thread " + Thread.currentThread().getId()  + " Seats size " + seats.length);
 	}
 	
-	public AbstractTicketingService() throws InterruptedException {
+	public AbstractTicketingService() throws InterruptedException, TicketException {
 		initSeats(props);
 		
 		availableSeatCounter = new AvailableSeatCounter(seats);
 		reservationMap = new ConcurrentHashMap<String, SeatHold>();
 		seatHoldQueue = new PriorityBlockingQueue<SeatHold>();
 		
-		this.seatFinder = FinderFactory.getInstance(FinderFactory.POLICY.BEST_AVAILABLE);
+		try {
+			this.seatFinder = FinderFactory.getInstance(FinderFactory.POLICY.BEST_AVAILABLE);
+		} catch (TicketException e) {
+			throw e;
+		}
 		this.seatFinder.setEntries(seats);
 		
 		dumpStatistics = new DumpStatistics(seatHoldQueue, availableSeatCounter, 
@@ -80,7 +84,6 @@ public class AbstractTicketingService implements TicketService {
 
 		holdExpirer = new SeatTimeExpirer(seatHoldQueue, startLatch, 
 						availableSeatCounter, holdQLock, holdQCond, dumpLock, dumpCond);
-		holdExpirer.setCheckInterval(Integer.parseInt(props.getProperty("CHECK_INTERVAL")));
 		holdExpirerThread = new Thread(holdExpirer);
 		holdExpirerThread.start();
 		
@@ -182,53 +185,44 @@ public class AbstractTicketingService implements TicketService {
 			return null;
 		
 		String reservation = null; 
-		//seatHoldQueue.removeIf(new SeatHold.SeatHoldPredicate());
 		
 		Iterator<SeatHold> iter = seatHoldQueue.iterator();
 		SeatHold sh = null;
 
 		while(iter.hasNext()) {
 			sh = iter.next();
-			if (sh.getSeatHoldId() == seatHoldId) {
+			if (sh.getSeatHoldId() == seatHoldId && 
+				sh.getCustomerEmail().equals(customerEmail)) {
 				iter.remove();
+				sh.confirmReservation();
+				reservation = generateReservationId();
+				reservationMap.put(reservation, sh);
+				System.out.println("MainThread after Reservation " + Thread.currentThread().getId() +" Seat Hold Size " 
+						+ sh.getSeats().size() + " SeatHold " + sh.toString());	
 				break;
 			}
 		}
-
-		assert(sh != null);
 		
-		if (null != sh && sh.getCustomerEmail().equals(customerEmail)) {
-			if (seatHoldQueue.remove(sh)) {
-				System.out.println("MainThread before Reservation " + Thread.currentThread().getId() +" Seat Hold Size " 
-						+ sh.getSeats().size() + " SeatHold " + sh.toString());	
-				if (sh.confirmReservation() > 0) {
-					reservation = generateReservationId();
-					reservationMap.put(reservation, sh);
-					System.out.println("MainThread after Reservation " + Thread.currentThread().getId() +" Seat Hold Size " 
-									+ sh.getSeats().size() + " SeatHold " + sh.toString());	
-				}
-			}
-		}
 
 		return reservation;
-	}
-	
+	}	
 
 	public void shutdown() {
-		
-		System.out.println("MainThread " + Thread.currentThread().getId() + 
+		System.out.println("Shutdown MainThread " + Thread.currentThread().getId() + 
 				" reservationMap " + reservationMap.size() + " seatHoldQueue " + seatHoldQueue.size()  + " availableSeatCount " + availableSeatCounter.getAvailableSeats());
-		reservationMap.clear();
-		seatHoldQueue.clear();
 
 		try {
+			Thread.sleep(5000);
+			dumpLock.lock();
+			dumpCond.signal();
 			holdQLock.lock();
 			holdQCond.signalAll();
+			seatHoldQueue.clear();
 			holdExpirer.stopRunning();
 			holdExpirerThread.join(1000);
 			dumpStatistics.stopRunning();
 			statisticsThread.join(1000);
-			
+			reservationMap.clear();
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		} finally {

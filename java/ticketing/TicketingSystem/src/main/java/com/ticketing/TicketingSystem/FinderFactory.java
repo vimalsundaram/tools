@@ -5,11 +5,11 @@ public final class FinderFactory {
 		BEST_AVAILABLE;
 	}
 	
-	public static IFinderStrategy<Seat> getInstance(POLICY policy) {
+	public static IFinderStrategy<Seat> getInstance(POLICY policy) throws TicketException {
 		if (POLICY.BEST_AVAILABLE == policy) {
 			return new BestAvailableFinderStrategy();
 		} else {
-			return new DefaultFinderStrategy();
+			throw new TicketException("Cannot instantiate a Strategy for finder");
 		}
 	}
 }
