@@ -16,7 +16,6 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public class AbstractTicketingService implements TicketService {
 	protected static final Properties props = loadProperties();
-
 	private static int rows;
 	private static int cols;
 	private static Seat[] seats;
