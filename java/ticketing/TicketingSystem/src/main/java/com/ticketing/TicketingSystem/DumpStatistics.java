@@ -40,20 +40,20 @@ public class DumpStatistics implements Runnable {
 	}
 
 	public void dumpStatistics() {		
-		System.out.println("***********BEGIN***********");
-		System.out.println("***********Time : "+ System.currentTimeMillis()/1000);
-		System.out.println("***********SeatHoldQueue : "+ seatHoldQueue.size());
-		System.out.println("***********SeatHoldQueue Seat count : " + seatHoldQueue.stream().mapToInt(sh -> sh.getSeats().size()).sum());
-		System.out.println("***********SeatHoldQueue Seat Entries " + Arrays.toString(seatHoldQueue.toArray()));
-		System.out.println("                               ***********");
-		System.out.println("***********ReservationMap  : "+ reservationMap.size());
-		System.out.println("***********ReservationMap Seat count : " + reservationMap.values().stream().mapToInt(sh->sh.getSeats().size()).sum());
-		reservationMap.forEach((k, v) -> System.out.println("***********ReservationMap Entries : " + v.toString()));
-		System.out.println("                               ***********");
-		System.out.println("***********AvailableSeats : "+ availableSeatCounter.getAvailableSeats());
-		System.out.println("***********TotalSeats : "+ totalSeats);
-		System.out.println("***********Seats Status" + Arrays.toString(seats));
-		System.out.println("***********END***********");
+		System.out.println("=========BEGIN=========");
+		System.out.println("=========Time : "+ System.currentTimeMillis()/1000);
+		System.out.println("=========SeatHoldQueue : "+ seatHoldQueue.size());
+		System.out.println("=========SeatHoldQueue Seat count : " + seatHoldQueue.stream().mapToInt(sh -> sh.getSeats().size()).sum());
+		System.out.println("=========SeatHoldQueue Seat Entries " + Arrays.toString(seatHoldQueue.toArray()));
+		System.out.println("                               =========");
+		System.out.println("=========ReservationMap  : "+ reservationMap.size());
+		System.out.println("=========ReservationMap Seat count : " + reservationMap.values().stream().mapToInt(sh->sh.getSeats().size()).sum());
+		reservationMap.forEach((k, v) -> System.out.println("=========ReservationMap Entries : " + v.toString()));
+		System.out.println("                               =========");
+		System.out.println("=========AvailableSeats : "+ availableSeatCounter.getAvailableSeats());
+		System.out.println("=========TotalSeats : "+ totalSeats);
+		System.out.println("=========Seats Status" + Arrays.toString(seats));
+		System.out.println("=========END=========");
 	}
 
 	@Override
