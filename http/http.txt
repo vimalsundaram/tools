@@ -1,0 +1,423 @@
+Data Resources/HTTP Methods
+Business Capabilities and Resource Modeling
+The comp business capabilities MUST be exposed through the platform as a set of resources that represent particular entities in comp. A list of identified capabilities and resources is available on the PPaaS Portal.
+
+This means that functionality MUST not be duplicated across the API, but rather that resources (e.g., user account, credit card, etc.) are expected to be re-used as needed across use cases.
+
+HTTP Methods
+Most services will fall easily into the standard data-resource model where the main operations available are represented by the acronym CRUD (Create, Read, Update, and Delete). These map very well to standard HTTP verbs.
+
+HTTP Method	Description
+GET	To retrieve a resource.
+POST	To create a resource, or to execute a complex operation on a resource.
+PUT	To update a resource.
+DELETE	To delete a resource.
+PATCH	To perform a partial update to a resource.
+The actual operation invoked MUST match the HTTP method semantics as defined in the table above.
+The GET method MUST NOT have side effects. It MUST NOT change the state of an underlying resource(s).
+POST: method SHOULD be used to create a new resource in a collection.
+Example: To add a credit card on file, POST https://api.comp.com/v1/vault/credit-cards
+Idempotency semantics: If this is a subsequent execution of the same invocation (including the comp-Request-Id header) and the resource was already created, then the request SHOULD be idempotent.
+The POST method SHOULD be used to create a new sub-resource and establish a relationship to it from the main resource.
+Example: To refund a payment with transaction ID 12345: POST https://api.comp.com/v1/payments/payments/12345/refund
+The POST method MAY be used in complex operations, along with the name of the operation This is also known as a controller pattern and is considered an exception to the RESTful model. It is more applicable in cases when resources represent a business process and operations are the steps or actions to be performed as part of it. For more information, please refer to section 2.6 of the RESTful Web Services Cookbook.
+The PUT method SHOULD be used to update resource attributes or to establish a relationship from a resource to an existing sub-resource; it updates the main resource with a reference to the sub-resource.
+HTTP Headers
+The purpose of HTTP headers is to provide metadata information about the body or the sender of the message in a uniform, standardized, and isolated way. HTTP header names are NOT case sensitive.
+
+HTTP headers SHOULD only be used for the purpose of handling cross-cutting concerns.
+API implementations SHOULD NOT introduce or depend on headers.
+Headers MUST NOT include API or domain specific values.
+If available, HTTP standard headers MUST be used instead of creating a custom header.
+Assumptions
+Service Consumers and Service Providers:
+
+SHOULD NOT expect that a particular HTTP header is available. It is possible that an intermediary component can drop an HTTP header. This is the reason business logic SHOULD NOT be based on HTTP headers.
+One exception to this rule is the validation of X-comp-Security-Context header, as this provides identity and access control.
+SHOULD NOT assume the value of a header has not been changed as part of HTTP message transmission.
+Infrastructure Component (SOA framework, SOA client invocation library, ESBs, LBs, etc involved in HTTP message delivery):
+
+MAY return an error based on availability and validity of a particular header without transmitting the message forward. For example, the purpose of authentication and authorization.
+MAY add, remove, or change a value of an HTTP header.
+HTTP Standard Headers
+These are headers defined or referenced from HTTP/1.1 specification. Their purpose, syntax, values, and semantics are well defined and understood by many infrastructure components.
+
+HTTP Header Name	Description
+Accept	This request header specifies the media types that the API client is capable of handling in the response. Systems issuing the HTTP request SHOULD send this header. Systems handling the request SHOULD NOT assume it is available. comp resource endpoints support application/json.
+Accept-Charset	This request header specifies what character sets the API client is capable of handling in the response.
+The value of Accept-Charset SHOULD include utf-8.
+Authorization	This request header SHOULD be used as part of OAuth 2.0 authorization for external API calls. For more information, please look at "How comp uses OAuth 2.0".
+Content-Language	This request/response header is used to specify the language of the content. The default locale is en-US. API clients SHOULD identify the language of the data using Content-Language header. APIs MUST provide this header in the response. 
+
+Example:
+Content-Language: en-US
+Note: Currently the backend does not support language tagging of data. Services might start exposing these aspects early to facilitate data tagging capability on the backend.
+Content-Type	This request/response header indicates the media type of the request or response body. 
+API client MUST include with request if the request contains a body, e.g. it is a POST, PUT, or PATCH request.
+API developer MUST include with response if a response body is included (not used with 204 responses).
+If the content is a text-based type, such as JSON, the Content-Type MUST include a character-set parameter. The character-set MUST be UTF-8.
+The only supported media type for now is application/json.
+Example:
+(in HTTP request)    Accept: application/json
+                     Accept-Charset: utf-8
+(in HTTP response)   Content-Type: application/json; charset=utf-8
+Link	According to Web Linking RFC 5988, a link is a typed connection between two resources that are identified by Internationalised Resource Identifiers (IRIs). The Link entity-header field provides a means for serializing one or more links in HTTP headers. 
+
+PPaaS APIs are built with a design assumption that neither an API, nor an API client's business logic should depend on information provided in the headers. Headers must only be used to carry cross-cutting concern information such as security, traceability, monitoring, etc. Moreover, headers are used to express meta infomation for an API while HATEOAS links contain state information of a resource at any point in time. 
+
+Therefore, usage of the Link header is prohibited with response codes 201 or 3xx. Consider using HATEOAS links in response body instead.
+Location	This response-header field is used to redirect the recipient to a location other than the Request-URI for completion of the request or identification of a new resource. 
+
+PPaaS APIs are built with a design assumption that neither an API, nor an API client's business logic should depend on information provided in the headers. Headers must only be used to carry cross-cutting concern information such as security, traceability, monitoring, etc. Moreover, headers are used to express meta infomation for an API while HATEOAS links contain state information of a resource at any point in time.
+
+Therefore, usage of the Location header is prohibited with response codes 201 or 3xx. Consider using HATEOAS links in response body instead.
+Prefer	The Prefer request header field is used to indicate that a particular server behavior(s) is preferred by the client but is not required for successful completion of the request. It is an end to end field and MUST be forwarded by a proxy if the request is forwarded unless Prefer is explicitly identified as being hop by hop using the Connection header field. Following token values are possible to use for PPaaS APIs provided an API documentation explicitly indicates support for Prefer.
+
+respond-async: API client prefers that API server processes its request asynchronously.
+Prefer: respond-async 
+Server returns a 202 (Accepted) response and processes the request asynchronously. API server could use webhook to inform the client subsequently or the client may call GET to get the response at a later time. Refer to asynchronous operations for further details. 
+
+read-consistent: API client prefers that API server returns response from durable store with consistent data. For APIs that are not offering any optimization preferences for their clients, this behavior would be the default and it would not require the client to set this token.
+Prefer: read-consistent
+read-eventual-consistent: API client prefers that API server returns response from either cache or presumably eventually consistent datastore if applicable. If there is a miss in finding the data from either of these two types of sources, the API server might return response from a consistent, durable datastore.
+Prefer: read-eventual-consistent
+read-cache: API client prefers that API server returns response from cache if available. If the cache hit is a miss, the server could return response from other sources such as eventual consistent datastore or a consistent, durable datastore.
+Prefer: read-cache
+return=representation: API client prefers that API server include an entity representing the current state of the resource in the response to a successful request.This preference is intended to provide a means of optimizing communication between the client and server by eliminating the need for a subsequent GET request to retrieve the current representation of the resource following a creation (POST) modification operation (PUT or PATCH).
+Prefer: return=representation
+User-Agent	API calls made by comp SDKs SHOULD be identified using this request header. The value MUST be formatted as:
+compSDK/{id} {version} ({features})
+id: represents the identifier for the SDK Library
+version: SDK's version identifier. Example: 1.0
+features: A set of features, separated by the semi-colon character ( ; ), which may optionally be communicated.
+Example: (iOS 6.0.1; i18n 9.0)
+Example:  compSDK/comp-Android-SDK 2.0.2 (Android 4.4.2; LGE Nexus 5;)
+HTTP Custom Headers
+These are custom headers specified by comp, and are not part of the HTTP spec. If a new header is required, you need to involve PPaaS team by sending an email to DL-PP-PPaaS-API-Design-Team.
+
+Previous custom headers required X- notation; however all new comp custom headers SHOULD use the comp- prefix and a - as a separator.
+
+HTTP Header Name	Description
+X-comp-Security-Context	This header contains authentication and identity information. Internal APIs MUST propagate this header to other services they invoke. For more infromation, please look at Security Context Specification.
+comp-Partner-Attribution-Id	A significant number of comp integrations happen through partners that help the merchants to use comp for their payment needs. In order to reward such partners (through partner programs), all the activities (including API calls) that they are doing on behalf of the merchants need to be tracked.
+
+Client Side
+The client MUST send a comp-Partner-Attribution-Id request header with the value that they have been assigned by the comp Partner program. This value is known as a "BN Code."
+
+Server Side
+If a comp-Partner-Attribution-Id header is required but missing, the service MUST reply with a 400 error with an link pointing to the public documentation about this pattern.
+If a comp-Partner-Attribution-Id header is optional and missing, the service MUST behave normally, and no partner attribution will be recorded.
+If a comp-Partner-Attribution-Id header is provided, the service MUST record it along with the other transactional information for the Partner Platform to track.
+For other errors, the service MUST return the appropriate error message.
+comp-Request-Id	API consumers MAY choose to send this header with a unique ID identifying the request header for tracking purpose. This header is specified as part of external comp APIs. 
+
+The header can be used internally for logging and tracking purpose too. It is RECOMMENDED to send this header back as a response header if response is synchronous or as request header of a webhook if applicable.
+Correlation-Id	This header is a CAL concept used to correlate CAL logs between application calls. This header must be propagated.
+comp-Client-Metadata-Id	A GUID value originating from Fraudnet and Dyson passed from external API clients via HTTP header. The value is used by Risk decisions to correlate calls which, in turn, might result in lower decline rates. 
+
+This header MUST be propagated.
+comp-Application-Correlation-Id	Deprecated; use comp-Client-Metadata-Id.
+comp-Debug-Id	This is a response header that we return to external client for debugging purposes. The value of this is the CAL correlation ID.
+
+API clients MUST NOT rely on the value returned in this header.
+PP_Remote_Addr	The load balancer at the edge puts the client IP address in this header. Services SHOULD NOT propagate this header to other services they depend on.
+comp-Client-Ipaddress	Client-passed header indicating the IP address of the user/customer. This maintains an existing standard for Adaptive Payments. This header must be propagated.
+HTTP Header Propagation
+When APIs receive request headers, they MUST pass on headers to any downstream requests as listed here. Other request headers SHOULD NOT be passed to downstream services.
+
+Correlation-Id
+X-comp-Security-Context
+comp-Client-Metadata-Id
+comp-Client-Ipaddress
+HTTP Status Codes
+RESTful services use HTTP status codes to specify the outcomes of HTTP method execution. HTTP protocol specifies the outcome of a request execution using an integer and a message. The number is known as the status code and the message as the reason phrase. The reason phrase is a human readable message used to clarify the outcome of the response. HTTP protocol categorizes status codes in ranges.
+
+Status Code Ranges
+When responding to API requests, the following status code ranges MUST be used:
+
+Range	Meaning
+2xx	Successful execution. It is possible for a method execution to succeed in several ways. This status code specifies which way it succeeded.
+4xx	Usually these are problems with the request, the data in the request, invalid authentication or authorization, etc. In most cases the client can modify their request and resubmit.
+5xx	Server error: The server was not able to execute the method due to site outage or software defect. 5xx range status codes SHOULD NOT be utilized for validation or logical error handling.
+Status Reporting
+Success and failure apply to the whole operation not just to the SOA framework portion or to the business logic portion of code exectuion. Success MUST be reported with a status code in the 2xx range. Failures MUST be reported in the 4xx or 5xx range. The following are guidelines for your status codes and reason phrases:
+
+There MUST be a standard, JSON-formatted error response in the body as defined by the error.json schema in your repository's CommonComponentsSpecification folder. This error.json schema is used to qualify the kind of error.
+HTTP status codes in the 2xx range MUST be returned only if the complete code execution path is successful. This includes any container/SOA framework code as well as the business logic code execution of the method.
+The outcome of method execution includes both system errors and application errors.
+A server returning a status code in the 2xx range MUST NOT return the standard error.json response, or any kind of error code, as part of the response body.
+A server returning a status code in the 4xx or 5xx range MUST return the standard error.json response body.
+For client errors in the 4xx code range, the reason phrase SHOULD provide enough information for the client to be able to determine what caused the error and how to fix it.
+For server errors in the 5xx code range, the reason phrase and standard error response SHOULD limit the amount of information to avoid exposing internal service implementation details to clients. As all APIs MUST be externalizable, this is true for internal APIs as well. Instead, logging and tracking should be used.
+Allowed Status Codes List
+All REST APIs MUST use only the following status codes. Status codes in BOLD SHOULD be used by API developers. The rest are primarily intended for SOA framework developers reporting framework-level errors related to security, content negotiation, etc.
+
+APIs MUST NOT return a status code that is not defined in this table.
+APIs MAY return only some of status codes defined in this table.
+Status Code	Description
+200 OK	Generic successful execution.
+201 Created	Used as a response to POST method execution to indicate successful creation of a resource. If the resource was already created (by a previous execution of the same method, for example), then the server should return status code 200 OK.
+202 Accepted	Used for asynchronous method execution to specify the server has accepted the request and will execute it at a later time. For more information, please look at the Asynchronous Operations.
+204 No Content	The server has successfully executed the method, but there is no entity body to return.
+400 Bad Request	The request could not be understood by the server. Use this status code to specify:
+The data as part of the payload cannot be converted to the underlying data type.
+The data is not in the expected data format.
+Required field is not available.
+Simple data validation type of error.
+401 Unauthorized	The request requires authentication and none was provided. Note the difference between this and 403 Forbidden.
+403 Forbidden	The client is not authorized to access this resource, although it may have valid credentials. API could use this code in case business level authorization fails. For example, accound holder does not have enough funds.
+404 Not Found	The server has not found anything matching the request URI. This either means that the URI is incorrect or the resource is not available. For example, it may be that no data exists in the database at that key.
+405 Method Not Allowed	The server has not implemented the requested HTTP method. This is typically default behavior for API frameworks.
+406 Not Acceptable	The server MUST return this status code when it cannot return the payload of the response using the media type requested by the client. For example, if the client sends an Accept: application/xml header, and the API can only generate application/json, the server MUST return 406.
+415 Unsupported Media Type	The server MUST return this status code when the media type of the request's payload cannot be processed. For example, if the client sends a Content-Type: application/xml header, but the API can only accept application/json, the server MUST return 415.
+422 Unprocessable Entity	The requested action cannot be performed and may require interaction with APIs or processes outside of the current request. This is distinct from a 500 response in that there are no systemic problems limiting the API from performing the request. For more practical examples, see the PPaaS Blog on this topic
+429 Too Many Requests	The server must return this status code if the rate limit for the user, the application, or the token has exceeded a predefined value. Defined in RFC 6585.
+500 Internal Server Error	This is either a system or application error, and generally indicates that although the client appeared to provide a correct request, something unexpected has gone wrong on the server. A 500 response indicates a server-side software defect or site outage. 500 SHOULD NOT be utilized for client validation or logic error handling.
+503 Service Unavailable	The server is unable to handle the request for a service due to temporary maintenance.
+HTTP Method to Status Code Mapping
+For each HTTP method, API developers SHOULD use only status codes marked as "X" in this table. If an API needs to return any of the status codes marked with an X, then the use case SHOULD be reviewed as part of API design review process and maturity level assessment. Most of these status codes are used to support very rare use cases.
+
+Status Code	200 Success	201 Created	202 Accepted	204 No Content	400 Bad Request	404 Not Found	422 Unprocessable Entity	500 Internal Server Error
+GET	X				X	X	X	X
+POST	X	X	X		X	X	X	X
+PUT	X		X	X	X	X	X	X
+PATCH	X			X	X	X	X	X
+DELETE	X			X	X	X	X	X
+GET: The purpose of the GET method is to retrieve a resource. On success, a status code 200 and a response with the content of the resource is expected. In cases where resource collections are empty (0 items in /v1/namespace/resources), 200 is the approriate status (resource will contain an empty items array). If a resource item is 'soft deleted' in the underlying data, 200 is not appropriate (404 is correct) unless the 'DELETED' status is intended to be exposed.
+
+POST: The primary purpose of POST is to create a resource. If the resource did not exist and was created as part of the execution, then a status code 201 SHOULD be returned.
+
+It is expected that on a successful execution, a reference to the resource created (in the form of a link or resource identifier) is returned in the response body.
+Idempotency semantics: If this is a subsequent execution of the same invocation (including the comp-Request-Id header) and the resource was already created, then a status code of 200 SHOULD be returned.
+If a sub-resource is utilized ('controller' or data resource), and the primary resource identifier is non-existent, 404 is an appropriate response.
+POST can also be used in a 'controller'/complex operation, 200 is the appropriate status code.
+
+PUT: This method SHOULD return status code 204 as there is no need to return any content in most cases as the request is to update a resource and it was successfully updated. The information from the request should not be echoed back. There is no need for a new hypermedia link either.
+
+In rare cases, server generated values may need to be provided in the response, to optimize client flow (if the client necessarily has to perform a GET after PUT). In these justified cases, 200 and a response body are appropriate. These cases should be reviewed with a PPaaS API Designer.
+PATCH: This method should follow the same status/response semantics as PUT, 204 status and no response body.
+
+200 + response body should be avoided at all costs, as PATCH performs partial updates, meaning multiple calls per resource is normal. As such, responding with the entire resource can result in large bandwidth usage, especially for bandwidth-sensitive mobile clients.
+DELETE: This method SHOULD return status code 204 as there is no need to return any content in most cases as the request is to delete a resource and it was successfully deleted.
+
+As the DELETE method MUST be idempotent as well, it SHOULD still return 204, even if the resource was already deleted. Usually the API consumer does not care if the resource was deleted as part of this operation, or before. This is also the reason why 204 instead of 404 should be returned.
+
+URI
+Following is a brief description of the URIs standards. This specification uses parentheses "( )" to group, an asterisk " * " to specify zero or more occurrences, and brackets "[ ]" for optional fields.
+
+[scheme"://"][host[':'port]]"/v" major-version '/'namespace '/'resource ('/'resource)* '?' query
+|-------- <b>end-point</b> --------|-- <b>major-version</b> --|- <b>namespace</b> -|---- <b>resource-path</b> -----|- <b>query</b> -|
+URIs MUST start with a letter and use only lower-case letters. Literals/expressions in URI paths SHOULD be separated using a hyphen ( - ). Literals/expressions in query strings SHOULD be separated using underscore ( _ ).
+URI paths and query strings MUST percent encode data into UTF-8 octets.
+Plural nouns SHOULD be used in the URI where appropriate to identify collections of data resources.
+/invoices
+/statements
+An individual resource in a collection of resources MAY exist directly beneath the collection URI.
+/invoices/{invoice_id}
+Sub-resource collections MAY exist directly beneath an individual resource. This should convey a relationship to another collection of resources (invoice-items, in this example).
+/invoices/{invoice_id}/items
+Sub-resource individual resources MAY exist, but should be avoided in favor of top-level resources.
+/invoices/{invoice_id}/items/{item_id}
+Better: /invoice-items/{invoice_item_id}
+Resource identifiers SHOULD follow PPaaS recommendations
+Examples
+
+https://api.paypal.com/v1/vault/credit-cards
+https://api.paypal.com/v1/vault/credit-cards/CARD-7LT50814996943336KESEVWA
+https://api.paypal.com/v1/payments/billing-agreements/I-V8SSE9WLJGY6/re-activate
+Formal Definition:
+
+Term	Defiition
+URI	[end-point] '/' resource-path ['?'query]
+end-point	[scheme "://"][ host [':' port]]
+scheme	"http" or "https"
+resource-path	"/v" version '/' namespace-name '/' resource ('/' resource)
+resource	resource-name ['/' resource-id]
+resource-name	Alpha (Alpha
+resource-id	value
+query	name '=' value ('&' name = value)*
+name	Alpha (Alpha
+value	URI Percent encoded value
+Legend
+
+'   Surround a special character with single quotes
+"   Surround strings with double quotes
+()  Use parentheses for grouping
+[]  Use brackets to specify optional expressions
+*   An expression can be repeated zero or more times
+For further reference on URIs, including resource identifiers, please see URI Standards
+
+Query Parameters
+Literals/expressions (as defined in RFC 3986) in query strings SHOULD be separated using underscore ( _ )
+Query parameters values MUST be percent-encoded.
+Query parameters MUST start with a letter and SHOULD be all in lower case. Only alpha characters, digits and the underscore ( _ ) character SHALL be used.
+Query parameters SHOULD be optional (see Cache-friendly APIs for exception).
+Some query parameter names are reserved, as indicated in Resource Collections.
+For more specific info on the query parameter usage, see URI Standards
+
+Resource Names
+When modeling a service as a set of resources, developers MUST follow these principles:
+
+Nouns MUST be used, not verbs.
+Resource names MUST be singular for singletons; collections' names MUST be plural.
+A description of the automatic payments configuration on a user's account
+GET /autopay returns the full representation
+A collection of hypothetical charges:
+GET /charges returns a list of charges that have been made
+POST /charges creates a new charge resource, /charges/1234
+GET /charges/1234 returns a full representation of a single charge
+Resource names MUST be lower-case and use only alphanumeric characters and hyphens.
+The hyphen character, ( - ), MUST be used as a word separator in URI path literals. Note that this is the only place where hyphens are used as a word separator. In nearly all other situations, the underscore character, ( _ ), MUST be used.
+Fields
+The data model for the representation MUST conform to JSON, a light-weight data representation for an object composed of unordered key-value pairs. The values may themselves be objects, strings, numbers, booleans, or arrays of objects.
+
+Key names MUST be lower-case words, separated by an underscore character, ( _ ).
+foo
+bar_baz
+Prefix such as is_ or has_ SHOULD NOT be used for keys of type boolean.
+Fields that represent arrays SHOULD be named using plural nouns (e.g. authenticators-contains one or more authenticators, products-contains one or more products).
+Enums
+Entries (values) of an enum SHOULD be composed of only upper-case alphanumeric characters and the underscore character, ( _ ).
+
+FIELD_10
+NOT_EQUAL
+If there is an industry standard that requires us to do otherwise, enums MAY contain other characters.
+
+Link Relation Types
+A link relation type represented by rel must be in lower-case.
+
+Example
+"links": [
+    {
+        "href": "href": "https://uri.paypal.com/v1/customer/partner-referrals/ALT-JFWXHGUV7VI/activate",
+        "rel": "activate",
+        "method": "POST"
+
+    }
+   ]
+
+What is HATEOAS?
+HATEOAS is an acronym for Hypermedia As The Engine Of Application State. It is a constraint of the REST application architecture. See PPaaS HATEOAS Patterns for details of HATEOAS as a concept and various applicable patterns.
+
+Link Relation Types
+A Link Relation Type serves as an identifier for a link. An API MUST assign a meaningful link relation type that unambiguously describes the semantics of the link. Clients use the relevant Link Relation Type in order to identify the link to use from a representation.
+
+When the semantics of a Link Relation Type defined in IANA's list of standardized link relations matches with the one you want to define, then it MUST be used.
+
+The below table describes some of the commonly used link relation types defined in IANA's list of standardized link relations. It also describes the extended link relation types defined by PPaaS.
+
+Link Relation Type	Description
+self	Conveys an identifier for the link's context. Usually a link pointing to the resource itself.
+first	Refers to the first page of the result list.
+last	Refers to the last page of the result list provided total_required is specified as a query parameter.
+next	Refers to the next page of the result list.
+prev	Refers to the previous page of the result list.
+collection	Refers to a collections resource (e.g /v1/users).
+create	Refers to a link that can be used to create a new resource.
+edit	Refers to editing (or partially updating) the representation identified by the link. Use this to represent a PATCH operation link.
+replace	Refers to completely update (or replace) the representation identified by the link. Use this PPaaS extended link relation type to represent a PUT operation link.
+alternate	Refers to an alternate version of a resource. Use this to return the new major (e.g. v2) version of the same resource.
+delete	Refers to deleting a resource identified by the link. Use this PPaaS extended link relation type to represent a DELETE operation link.
+search	Refers to a resource that can be used to search through the link's context and related resources.
+up	Refers to a parent resource in a hierarchy of resources.
+For all controller style complex operations, the controller action name must be used as the link relation type (e.g. activate,cancel,refund).
+How to define Hypermedia Links in PPaaS APIs
+Links MUST be described using the JSON schema Link Description Objects (LDO) . A LDO describes a single link relation in the links array. The 'href' and 'rel' properties in the LDO are required properties.
+
+Below is a note on some of the key properties that you will be using from the Link Description Objects (LDO)
+
+href:
+
+A value for the 'href' property MUST be provided.
+The value of the 'href' property MUST be a URI template used to determine the target URI of the related resource. It SHOULD be resolved as a URI template per RFC 6570.
+Use ONLY absolute URIs as a value for 'href' property. Clients usually bookmark the absolute URI of a Link Relation Type from the representation to make API requests later. Developers MUST use the PPaaS URI Definition to construct absolute URIs. The value from the incoming Host header (e.g. api.paypal.com) MUST be used as the host field of the absolute URI.
+rel:
+
+'rel' stands for relation as defined in Link Relation Type
+The value of the 'rel' property indicates the name of the relation to the target resource.
+A value for the 'rel' property MUST be provided.
+method:
+
+The 'method' property identifies the HTTP verb that MUST be used to make a request to the target of the link. The 'method' property assumes a default value of 'GET' if it is ommitted.
+title:
+
+The 'title' property provides a title for the link and is a helpful documentation tool to facilitate understanding by the end clients. This property is NOT REQUIRED.
+Links Array
+The links array property of schemas is used to associate a Link Description Objects (LDO) with a JSON hyper-schema draft-04 instance.
+
+This property MUST be an array
+Items in the array must be of type Link Description Objects (LDO)
+Specifying the Links array
+Here's an example of how you would describe links in the schema.
+
+A links array similar to the one defined in the sample JSON schema below MUST be provided as part of the API resource schema definition. Please note that the links array needs to be declared within the properties keyword of an object. This is required for code generators to add setter/getter methods for the links array in the generated object.
+
+All possible links that an API return as part of the response MUST be declared in the response schema using an URI template. The links array of URI templates MUST be declared outside the properties keyword.
+
+{
+    "type":"object",
+    "$schema":"http://json-schema.org/draft-04/hyper-schema#",
+    "description":"A sample resource representing a customer name.",
+    "properties":{
+        "id":{
+        "type":"string",
+            "description":"Unique ID to identify a customer."
+        },
+        "first_name":{
+            "type":"string",
+            "description":"Customer's first name."
+        },
+        "last_name":{
+            "type":"string",
+            "description":"Customer's last name."
+        },
+        "links":{
+            "type":"array",
+            "items":{
+                "$ref":"http://json-schema.org/draft-04/hyper-schema#definitions/linkDescription"
+            }
+        }
+    },
+    "links": [
+        {
+            "href": "https://api.paypal.com/v1/customer/users/{id}",
+            "rel": "self"
+        },
+        {
+            "href": "https://api.paypal.com/v1/customer/users/{id}",
+            "rel": "delete",
+            "method": "DELETE"
+        },
+        {
+            "href": "https://api.paypal.com/v1/customer/users/{id}",
+            "rel": "replace",
+            "method": "PUT"
+        },
+        {
+            "href": "https://api.paypal.com/v1/customer/users/{id}",
+            "rel": "edit",
+            "method": "PATCH"
+        }
+    ]
+
+}
+You MUST generate all the hyperlinks used by your application and provide them in the samples directory so that the API response assessment can be completed.
+
+Below is an example response that is compliant with the above schema that MUST be placed in the 'samples' directory in the PPaaS service template.
+
+{
+    "id": "ALT-JFWXHGUV7VI",
+    "first_name": "John",
+    "last_name": "Doe",
+    "links": [
+        {
+            "href":"https://api.paypal.com/v1/customer/users/ALT-JFWXHGUV7VI",
+            "rel":"self"
+        },
+        {
+            "href":"https://api.paypal.com/v1/customer/users/ALT-JFWXHGUV7VI",
+            "rel":"edit",
+            "method":"PATCH"
+        }
+    ]
+}
